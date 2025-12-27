@@ -12,6 +12,18 @@ const (
 	ColorBlack
 )
 
+// TODO: REPLACE NUMBERS WITH FILE CONSTANTS FOR CLARITY WHEREVER NECESSARY
+const (
+	FILEA = iota
+	FILEB
+	FILEC
+	FILED
+	FILEE
+	FILEF
+	FILEG
+	FILEH
+)
+
 func (c Color) Opponent() Color {
 	return Color(c ^ 1)
 }
@@ -92,6 +104,13 @@ func NewPiece(pt PieceType, c Color) Piece {
 	return Piece{
 		PieceType: pt,
 		Color:     c,
+	}
+}
+
+func EmptyPiece() Piece {
+	return Piece{
+		PieceType: PieceNone,
+		Color:     ColorWhite,
 	}
 }
 

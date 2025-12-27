@@ -25,14 +25,14 @@ func NewMove(from, to Square) *Move {
 		Flags: MoveFlagNone,
 	}
 }
-func NewCapture(from, to Square) *Move {
+func NewCaptureMove(from, to Square) *Move {
 	return &Move{
 		From:  from,
 		To:    to,
 		Flags: MoveFlagCapture,
 	}
 }
-func NewPromotion(from, to Square, promoPiece PieceType) *Move {
+func NewPromotionMove(from, to Square, promoPiece PieceType) *Move {
 	return &Move{
 		From:      from,
 		To:        to,
@@ -54,7 +54,7 @@ func NewEnPassant(from, to Square) *Move {
 		Flags: MoveFlagEnPassant | MoveFlagCapture,
 	}
 }
-func NewCastle(from, to Square) *Move {
+func NewCastleMove(from, to Square) *Move {
 	return &Move{
 		From:  from,
 		To:    to,

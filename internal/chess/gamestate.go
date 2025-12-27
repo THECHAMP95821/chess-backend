@@ -18,26 +18,6 @@ type GameState struct {
 	blackKingCached Square
 }
 
-func (gs *GameState) GetKingSquare(c Color) Square {
-	if c == ColorWhite {
-		return gs.whiteKingCached
-	}
-	return gs.blackKingCached
-}
-
-func (gs *GameState) updateKingSquare(c Color, sq Square) {
-	if c == ColorBlack {
-		gs.blackKingCached = sq
-	} else {
-		gs.whiteKingCached = sq
-	}
-}
-
-func (gs *GameState) Copy() GameState {
-	gscopy := *gs
-	return gscopy
-}
-
 func NewInitialGameState() GameState {
 	board := NewBoard()
 	board.setPawnsOnRank(ColorWhite)
@@ -59,5 +39,79 @@ func NewInitialGameState() GameState {
 		FullMoveCounter: 1,
 		whiteKingCached: NewSquare(4, 0),
 		blackKingCached: NewSquare(4, 7),
+	}
+}
+
+func (gs *GameState) GetKingSquare(c Color) Square {
+	if c == ColorWhite {
+		return gs.whiteKingCached
+	}
+	return gs.blackKingCached
+}
+
+func (gs *GameState) updateKingSquare(c Color, sq Square) {
+	if c == ColorBlack {
+		gs.blackKingCached = sq
+	} else {
+		gs.whiteKingCached = sq
+	}
+}
+
+func (gs *GameState) Copy() GameState {
+	gscopy := *gs
+	return gscopy
+}
+func (gs *GameState) switchSides() {
+	gs.SideToMove = gs.SideToMove.Opponent()
+}
+
+func (gs *GameState) updateClocks(m Move) {
+	from := m.From
+	piece := gs.Board[from]
+	if piece.Color == ColorBlack {
+		gs.FullMoveCounter++
+	}
+	if piece.PieceType == Pawn || m.IsCapture() {
+		gs.HalfMoveClock = 0
+	} else {
+		gs.HalfMoveClock++
+	}
+}
+
+func (gs *GameState) MakeMove(m Move) UndoInfo {
+	undoInfo := UndoInfo{}
+	switch m.Flags {
+	case MoveFlagNone, MoveFlagCapture:
+		undoInfo = gs.MakeNormalMove(m)
+	case MoveFlagDoublePush:
+		undoInfo = gs.MakeDoublePush(m)
+	case MoveFlagCastle:
+		undoInfo = gs.MakeCastle(m)
+	case MoveFlagEnPassant:
+		undoInfo = gs.MakeEnPassant(m)
+	case MoveFlagPromotion:
+		undoInfo = gs.MakePromotion(m)
+	}
+	if m.Flags != MoveFlagDoublePush {
+		gs.EnPassantSquare = Square(-1)
+	}
+	gs.switchSides()
+	gs.updateClocks(m)
+	return undoInfo
+}
+
+func (gs *GameState) UnmakeMove(m Move, ui UndoInfo) {
+	gs.switchSides()
+	switch m.Flags {
+	case MoveFlagNone, MoveFlagCapture:
+		gs.UnmakeNormalMove(m, ui)
+	case MoveFlagDoublePush:
+		gs.UnmakeDoublePush(m, ui)
+	case MoveFlagCastle:
+		gs.UnmakeCastle(m, ui)
+	case MoveFlagEnPassant:
+		gs.UnmakeEnPassantSquare(m, ui)
+	case MoveFlagPromotion:
+		gs.UnmakePromotion(m, ui)
 	}
 }
