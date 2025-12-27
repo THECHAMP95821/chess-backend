@@ -57,6 +57,21 @@ func (gs *GameState) updateKingSquare(c Color, sq Square) {
 	}
 }
 
+func (gs *GameState) cacheKingSquares() {
+	for sq := Square(0); sq < 64; sq++ {
+		piece := gs.Board[sq]
+		if piece.PieceType != King {
+			continue
+		}
+
+		if piece.Color == ColorWhite {
+			gs.whiteKingCached = sq
+		} else {
+			gs.blackKingCached = sq
+		}
+	}
+}
+
 func (gs *GameState) Copy() GameState {
 	gscopy := *gs
 	return gscopy

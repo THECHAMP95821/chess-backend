@@ -14,11 +14,18 @@ func GeneratePawnMoves(state *GameState, from Square, moves *[]Move) {
 	if color == ColorWhite {
 		dir = 1
 	}
+	flag := MoveFlagNone
+
+	if (color == ColorWhite && from.Rank() == 6) || (color == ColorBlack && from.Rank() == 1) {
+		flag = MoveFlagPromotion
+	}
+
 	singlePushSquare := Square(int(from) + dir*8)
 	if singlePushSquare.isValid() && board[singlePushSquare].IsEmpty() {
 		*moves = append(*moves, Move{
-			From: from,
-			To:   singlePushSquare,
+			From:  from,
+			To:    singlePushSquare,
+			Flags: flag,
 		})
 	}
 	if (color == ColorWhite && from.Rank() == 1) || (color == ColorBlack && from.Rank() == 6) {
@@ -41,10 +48,13 @@ func GeneratePawnMoves(state *GameState, from Square, moves *[]Move) {
 		captureSquare := from.applyOffset(offset)
 		if captureSquare.isValid() && board[captureSquare].IsOpponent(board[from]) &&
 			abs(from.File()-captureSquare.File()) == 1 {
+			if captureSquare == state.EnPassantSquare {
+				flag = MoveFlagEnPassant
+			}
 			*moves = append(*moves, Move{
 				From:  from,
 				To:    captureSquare,
-				Flags: MoveFlagCapture,
+				Flags: flag | MoveFlagCapture,
 			})
 		}
 	}
@@ -129,6 +139,10 @@ func GenerateRookMoves(state *GameState, from Square, moves *[]Move) {
 	}
 }
 
+func isSquareSafeForKing(state *GameState, sq Square, color Color) bool {
+	return !IsSquareAttacked(state, sq, color.Opponent())
+}
+
 func GenerateKingMoves(state *GameState, from Square, moves *[]Move) {
 	board := state.Board
 	for _, offset := range KingOffsets {
@@ -142,11 +156,71 @@ func GenerateKingMoves(state *GameState, from Square, moves *[]Move) {
 		if board[to].IsAlly(board[from]) {
 			continue
 		}
+		flag := MoveFlagNone
+		if board[to].IsOpponent(board[from]) {
+			flag = MoveFlagCapture
+		}
 		*moves = append(*moves, Move{
-			From: from,
-			To:   to,
+			From:  from,
+			To:    to,
+			Flags: flag,
 		})
 	}
+
+	color := board[from].Color
+	rank := 0
+	if color == ColorBlack {
+		rank = 7
+	}
+
+	if from != NewSquare(4, rank) {
+		return
+	}
+
+	if IsSquareAttacked(state, from, color.Opponent()) {
+		return
+	}
+
+	if (color == ColorWhite && state.CastlingRights.WhiteKingSide) ||
+		(color == ColorBlack && state.CastlingRights.BlackKingSide) {
+
+		f := NewSquare(5, rank)
+		g := NewSquare(6, rank)
+
+		if board[f].IsEmpty() &&
+			board[g].IsEmpty() &&
+			isSquareSafeForKing(state, f, color) &&
+			isSquareSafeForKing(state, g, color) {
+
+			*moves = append(*moves, Move{
+				From:  from,
+				To:    g,
+				Flags: MoveFlagCastle,
+			})
+		}
+	}
+
+	if (color == ColorWhite && state.CastlingRights.WhiteQueenSide) ||
+		(color == ColorBlack && state.CastlingRights.BlackQueenSide) {
+
+		d := NewSquare(3, rank)
+		c := NewSquare(2, rank)
+		b := NewSquare(1, rank)
+
+		if board[d].IsEmpty() &&
+			board[c].IsEmpty() &&
+			board[b].IsEmpty() &&
+			isSquareSafeForKing(state, d, color) &&
+			isSquareSafeForKing(state, c, color) {
+
+			*moves = append(*moves, Move{
+				From:  from,
+				To:    c,
+				Flags: MoveFlagCastle,
+			})
+		}
+	}
+
 }
 
 func GeneratePseudoLegalMoves(state *GameState) []Move {
@@ -282,4 +356,31 @@ func IsSquareAttacked(state *GameState, square Square, byColor Color) bool {
 		isSquareAttackedByRook(state, square, byColor) ||
 		isSquareAttackedByQueen(state, square, byColor) ||
 		isSquareAttackedByKing(state, square, byColor)
+}
+
+func (gs *GameState) IsKingInCheck() bool {
+	var kingPos Square
+	color := gs.SideToMove
+	if color == ColorWhite {
+		kingPos = gs.whiteKingCached
+	} else {
+		kingPos = gs.blackKingCached
+	}
+	return IsSquareAttacked(gs, kingPos, color.Opponent())
+}
+
+func GenerateLegalMoves(state *GameState) []Move {
+	pseudoLegalMoves := GeneratePseudoLegalMoves(state)
+	legalMoves := make([]Move, 0, len(pseudoLegalMoves))
+
+	for _, move := range pseudoLegalMoves {
+		undo := state.MakeMove(move)
+
+		if !state.IsKingInCheck() {
+			legalMoves = append(legalMoves, move)
+		}
+
+		state.UnmakeMove(move, undo)
+	}
+	return legalMoves
 }
